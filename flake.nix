@@ -12,7 +12,7 @@
     pkgs = nixpkgs.legacyPackages.${system};
 
     venvDir = "venv";
-    pythonPackages = pkgs.pythonPackages;
+    pythonPackages = pkgs.python314Packages;
   in {
     devShells.${system}.default = pkgs.mkShell {
       buildInputs = with pkgs; [
