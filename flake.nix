@@ -15,10 +15,11 @@
     pythonPackages = pkgs.python314Packages;
   in {
     devShells.${system}.default = pkgs.mkShell {
-      buildInputs = with pkgs; [
+      packages = with pkgs; [
         bear
         avrdude
         platformio
+        platformio-core
 
         pythonPackages.python
       ];
