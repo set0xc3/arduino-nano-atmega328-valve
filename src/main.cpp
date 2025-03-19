@@ -1,7 +1,3 @@
-/*
-
-*/
-
 #include "Arduino.h"
 #include "timer.hpp"
 
@@ -12,81 +8,62 @@ enum AppState
   GameOver
 };
 
-uint8_t digital_pin_led_a = PIND3;
-uint8_t digital_pin_win = PIND4;
-uint8_t digital_pin_game_over = PIND5;
+const uint8_t PIN_LED = 3;
+const uint8_t PIN_WIN = 4;
+const uint8_t PIN_GAME_OVER = 5;
 
-AppState app_state = {};
+AppState app_state = Run;
 
-static skat::Timer timer_a;
+skat::Timer main_timer({0, 2000, 1000});
+skat::Timer pwm_timer({0, 50, 50});
 
 void setup()
 {
   Serial.begin(9600);
-  Serial.println();
-
-  pinMode(digital_pin_led_a, OUTPUT);
-  pinMode(digital_pin_win, INPUT_PULLUP);
-  pinMode(digital_pin_game_over, INPUT_PULLUP);
-
-  // app_state = Run;
-  Serial.println(F("Setup..."));
-
-  skat::TimerInterval interval = {0, 1000, 1000};
-  timer_a = skat::Timer(interval);
+  pinMode(PIN_LED, OUTPUT);
+  pinMode(PIN_WIN, INPUT_PULLUP);
+  pinMode(PIN_GAME_OVER, INPUT_PULLUP);
 }
 
 void loop()
 {
-  timer_a.update(millis());
-  if (timer_a.get_state() == skat::TimerState::Run)
+  main_timer.update(millis());
+  pwm_timer.update(millis());
+
+  // Управление ШИМ через таймер
+  if (main_timer.getState() == skat::TimerState::Run)
   {
-    Serial.println(F("TimerState::Run"));
+    pwm_timer.start();
+
+    if (pwm_timer.getState() == skat::TimerState::Run)
+    {
+      analogWrite(PIN_LED, 255); // 100% яркость
+    }
+    else
+    {
+      analogWrite(PIN_LED, 0); // 0% яркость
+    }
+  }
+  else
+  {
+    analogWrite(PIN_LED, 0); // Выключить при остановке
   }
 
-  // Проверка состояний пинов
-  //
-  if (digitalRead(digital_pin_win) == LOW)
+  // Обработка кнопок
+  if (digitalRead(PIN_WIN) == LOW)
   {
     app_state = Win;
+    main_timer.start();
   }
 
-  if (digitalRead(digital_pin_game_over) == LOW)
+  if (digitalRead(PIN_GAME_OVER) == LOW)
   {
     app_state = GameOver;
+    main_timer.drop();
   }
 
-  // if (timer_a.get_state() == TimerState::RUNNING) {
-  //   Serial.println(F("COMPLETED"));
-  // }
-
-  // if (timer_a.state == TIMER_STATE_RUNNING)
-  // {
-  //   Serial.println(F("TIMER_STATE_RUNNING"));
-  //   digitalWrite(digital_pin_led_a, HIGH);
-  // }
-  // if (timer_a.state == TIMER_STATE_DONE)
-  // {
-  //   digitalWrite(digital_pin_led_a, LOW);
-  //   Serial.println(F("TIMER_STATE_DONE"));
-  //   timer_stop(&timer_a);
-  // }
-
-  // Логика зависит от состояний пинов
-  //
-  switch (app_state)
+  if (app_state != Run)
   {
-  case Run:
-    break;
-  case Win:
-    // Serial.println("Win!");
     app_state = Run;
-    timer_a.start();
-    // timer_a.drop();
-    break;
-  case GameOver:
-    // Serial.println("GameOver!");
-    app_state = Run;
-    break;
   }
 }

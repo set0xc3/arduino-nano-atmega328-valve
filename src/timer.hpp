@@ -34,8 +34,8 @@ namespace skat
     {
       if (m_state == TimerState::Stop)
       {
-        m_state = TimerState::Wait;
-        m_start_time = 0; // Время будет установлено при первом update
+        m_state = m_interval.waiting > 0 ? TimerState::Wait : TimerState::Run;
+        m_start_time = 0;
       }
     }
 
@@ -46,7 +46,7 @@ namespace skat
 
       if (m_start_time == 0)
       {
-        m_start_time = current_time; // Инициализация при первом вызове
+        m_start_time = current_time;
         return;
       }
 
@@ -73,22 +73,20 @@ namespace skat
       case TimerState::Sleep:
         if (elapsed >= m_interval.sleeping)
         {
-          m_state = TimerState::Stop;
+          m_state = m_interval.waiting > 0 ? TimerState::Wait : TimerState::Run;
+          m_start_time = current_time;
         }
-        break;
-
-      default:
         break;
       }
     }
 
-    void reset()
+    void drop()
     {
       m_state = TimerState::Stop;
       m_start_time = 0;
     }
 
-    TimerState get_state() const { return m_state; }
+    TimerState getState() const { return m_state; }
 
   private:
     TimerInterval m_interval{};
