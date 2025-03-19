@@ -32,14 +32,15 @@ void setup()
   // app_state = Run;
   Serial.println(F("Setup..."));
 
-  skat::TimerInterval interval = {0, 1000, 0};
+  skat::TimerInterval interval = {0, 1000, 1000};
   timer_a = skat::Timer(interval);
 }
 
 void loop()
 {
   timer_a.update(millis());
-  if (timer_a.get_state() == skat::TimerState::Run) {
+  if (timer_a.get_state() == skat::TimerState::Run)
+  {
     Serial.println(F("TimerState::Run"));
   }
 
@@ -80,7 +81,8 @@ void loop()
   case Win:
     // Serial.println("Win!");
     app_state = Run;
-    timer_a.drop();
+    timer_a.start();
+    // timer_a.drop();
     break;
   case GameOver:
     // Serial.println("GameOver!");
