@@ -9,115 +9,142 @@ SoftwareSerial softSerial(/*rx =*/10, /*tx =*/11);
 
 DFRobotDFPlayerMini myDFPlayer;
 
+class Button
+{
+public:
+  void update()
+  {
+    m_last_state = m_state;
+  }
+
+  void on_event(bool is_state)
+  {
+    m_state = is_state;
+  }
+
+  bool is_pressed()
+  {
+    return !m_last_state && m_state;
+  }
+
+  bool is_release()
+  {
+    return m_last_state && !m_state;
+  }
+
+  bool is_down()
+  {
+    return m_last_state && m_state;
+  }
+
+private:
+  bool m_state;
+  bool m_last_state;
+};
+
 enum AppState
 {
-  Run,
-  Win,
+  NoGame,
+  GameRun,
+  GameWin,
   GameOver
 };
 
-const uint8_t PIN_LED_RED = PIND2;
-const uint8_t PIN_LED_GREEN = PIND3;
-const uint8_t PIN_WIN = PIND4;
-const uint8_t PIN_GAME_OVER = PIND5;
+const uint8_t PIN_LED_RED_OUT = PIND2;
+const uint8_t PIN_LED_GREEN_OUT = PIND3;
 
-AppState app_state = Run;
+const uint8_t PIN_WIN_IN = PIND4;
+const uint8_t PIN_GAME_OVER_IN = PIND5;
 
-skat::Timer win_timer({0, 2000, 500});
-skat::Timer game_over_timer({0, 2000, 500});
-skat::Timer pwm_timer({0, 80, 80});
+const uint8_t MASTER_BUTTON_PIN = PIN_A0;
+
+Button button;
+
+AppState app_state = NoGame;
 
 void setup()
 {
   FPSerial.begin(9600);
-  // Serial.begin(9600);
-  pinMode(PIN_LED_RED, OUTPUT);
-  pinMode(PIN_LED_GREEN, OUTPUT);
-  pinMode(PIN_WIN, INPUT_PULLUP);
-  pinMode(PIN_GAME_OVER, INPUT_PULLUP);
+  Serial.begin(9600);
 
-  if (!myDFPlayer.begin(FPSerial, /*isACK = */ true, /*doReset = */ true))
-  {
-    // Serial.println(F("Unable to begin:"));
-    while (true)
-    {
-      delay(0); // Code to compatible with ESP8266 watch dog.
-    }
-  }
-  // Serial.println(F("DFPlayer Mini online."));
+  pinMode(PIN_LED_RED_OUT, OUTPUT);
+  pinMode(PIN_LED_GREEN_OUT, OUTPUT);
 
-  myDFPlayer.volume(5); // Set volume value. From 0 to 30
+  pinMode(PIN_WIN_IN, INPUT);
+  pinMode(PIN_GAME_OVER_IN, INPUT);
+
+  pinMode(MASTER_BUTTON_PIN, INPUT);
+
+  Serial.println(F("Setup..."));
 }
 
 void loop()
 {
-  // win_timer.update(millis());
-  // game_over_timer.update(millis());
-  // pwm_timer.update(millis());
+  button.update();
 
-  // // Управление ШИМ через таймер
-  // if (win_timer.getState() == skat::TimerState::Run)
-  // {
-  //   game_over_timer.drop();
-  //   pwm_timer.start();
-
-  //   if (pwm_timer.getState() == skat::TimerState::Run)
-  //   {
-  //     analogWrite(PIN_LED_GREEN, 255); // 100% яркость
-  //   }
-  //   else
-  //   {
-  //     analogWrite(PIN_LED_GREEN, 0); // 0% яркость
-  //   }
-  // }
-  // else if (win_timer.getState() == skat::TimerState::Stop)
-  // {
-  //   analogWrite(PIN_LED_GREEN, 0);
-  // }
-
-  // if (game_over_timer.getState() == skat::TimerState::Run)
-  // {
-  //   win_timer.drop();
-  //   pwm_timer.start();
-
-  //   if (pwm_timer.getState() == skat::TimerState::Run)
-  //   {
-  //     analogWrite(PIN_LED_RED, 255); // 100% яркость
-  //   }
-  //   else
-  //   {
-  //     analogWrite(PIN_LED_RED, 0); // 0% яркость
-  //   }
-  // }
-  // else if (game_over_timer.getState() == skat::TimerState::Stop)
-  // {
-  //   analogWrite(PIN_LED_RED, 0);
-  // }
-
-  // Обработка кнопок
-  if (digitalRead(PIN_WIN) == LOW)
+  if (digitalRead(MASTER_BUTTON_PIN) == HIGH)
   {
-    if (app_state != Win)
-    {
-      app_state = Win;
-      win_timer.start();
-
-      myDFPlayer.play(2);
-    }
+    button.on_event(true);
+  }
+  else if (digitalRead(MASTER_BUTTON_PIN) == LOW)
+  {
+    button.on_event(false);
   }
 
-  if (digitalRead(PIN_GAME_OVER) == LOW)
+  switch (app_state)
   {
-    if (app_state != GameOver)
+  case NoGame:
+  {
+    Serial.println(F("Не играем"));
+
+    if (button.is_release())
+    {
+      app_state = GameRun;
+    }
+  }
+  break;
+  case GameRun:
+  {
+    Serial.println(F("Играем"));
+
+    if (button.is_release())
+    {
+      app_state = NoGame;
+      Serial.println(F("Drop"));
+      break;
+    }
+
+    if (digitalRead(PIN_WIN_IN) == LOW)
+    {
+      app_state = GameWin;
+    }
+    else if (digitalRead(PIN_GAME_OVER_IN) == LOW)
     {
       app_state = GameOver;
-      game_over_timer.start();
-      myDFPlayer.play(3);
     }
   }
-
-  if (app_state != Run)
+  break;
+  case GameWin:
   {
-    app_state = Run;
+    Serial.println(F("GameWin"));
+
+    if (button.is_release())
+    {
+      app_state = NoGame;
+      Serial.println(F("Drop"));
+    }
+  }
+  break;
+  case GameOver:
+  {
+    Serial.println(F("GameOver"));
+
+    if (button.is_release())
+    {
+      app_state = NoGame;
+      Serial.println(F("Drop"));
+    }
+  }
+  break;
   }
 }
