@@ -50,22 +50,27 @@ enum AppState
   GameOver
 };
 
-const uint8_t PIN_LED_RED_OUT = PIND2;
-const uint8_t PIN_LED_GREEN_OUT = PIND3;
+static const uint8_t PIN_LED_RED_OUT = PIND2;
+static const uint8_t PIN_LED_GREEN_OUT = PIND3;
 
-const uint8_t PIN_WIN_IN = PIND4;
-const uint8_t PIN_GAME_OVER_IN = PIND5;
+static const uint8_t PIN_WIN_IN = PIND4;
+static const uint8_t PIN_GAME_OVER_IN = PIND5;
 
-const uint8_t MASTER_BUTTON_PIN = PIN_A0;
+static const uint8_t MASTER_BUTTON_PIN = PIN_A0;
 
-Button button;
+static Button master_button;
 
-AppState app_state = NoGame;
+static AppState app_state = NoGame;
+static skat::Timer leds_timer({0, 500, 500});
+
+static bool is_play_sound = false;
 
 void setup()
 {
+  Serial.println(F("Setup..."));
+
   FPSerial.begin(9600);
-  Serial.begin(9600);
+  // Serial.begin(9600);
 
   pinMode(PIN_LED_RED_OUT, OUTPUT);
   pinMode(PIN_LED_GREEN_OUT, OUTPUT);
@@ -75,20 +80,32 @@ void setup()
 
   pinMode(MASTER_BUTTON_PIN, INPUT);
 
-  Serial.println(F("Setup..."));
+  Serial.println();
+  Serial.println("DFPlayer Mini Demo");
+  Serial.println("Initializing DFPlayer...");
+  if (!myDFPlayer.begin(FPSerial, /*isACK = */ true, /*doReset = */ true))
+  {
+    Serial.println("Unable to begin:");
+    Serial.println("1.Please recheck the connection!");
+    Serial.println("2.Please insert the SD card!");
+    while (true)
+      ;
+  }
+  Serial.println(F("DFPlayer Mini online."));
+  myDFPlayer.volume(10); // 0-30 Value
 }
 
 void loop()
 {
-  button.update();
+  master_button.update();
 
   if (digitalRead(MASTER_BUTTON_PIN) == HIGH)
   {
-    button.on_event(true);
+    master_button.on_event(true);
   }
   else if (digitalRead(MASTER_BUTTON_PIN) == LOW)
   {
-    button.on_event(false);
+    master_button.on_event(false);
   }
 
   switch (app_state)
@@ -97,9 +114,26 @@ void loop()
   {
     Serial.println(F("Не играем"));
 
-    if (button.is_release())
+    leds_timer.start();
+    leds_timer.update(millis());
+
+    if (leds_timer.getState() == skat::TimerState::Run)
+    {
+      digitalWrite(PIN_LED_RED_OUT, true);
+      digitalWrite(PIN_LED_GREEN_OUT, false);
+    }
+    else if (leds_timer.getState() == skat::TimerState::Sleep)
+    {
+      digitalWrite(PIN_LED_RED_OUT, false);
+      digitalWrite(PIN_LED_GREEN_OUT, true);
+    }
+
+    if (master_button.is_release())
     {
       app_state = GameRun;
+
+      digitalWrite(PIN_LED_RED_OUT, false);
+      digitalWrite(PIN_LED_GREEN_OUT, false);
     }
   }
   break;
@@ -107,7 +141,7 @@ void loop()
   {
     Serial.println(F("Играем"));
 
-    if (button.is_release())
+    if (master_button.is_release())
     {
       app_state = NoGame;
       Serial.println(F("Drop"));
@@ -127,9 +161,17 @@ void loop()
   case GameWin:
   {
     Serial.println(F("GameWin"));
+    digitalWrite(PIN_LED_GREEN_OUT, true);
 
-    if (button.is_release())
+    if (!is_play_sound)
     {
+      is_play_sound = true;
+      myDFPlayer.play(2);
+    }
+
+    if (master_button.is_release())
+    {
+      is_play_sound = false;
       app_state = NoGame;
       Serial.println(F("Drop"));
     }
@@ -138,9 +180,17 @@ void loop()
   case GameOver:
   {
     Serial.println(F("GameOver"));
+    digitalWrite(PIN_LED_RED_OUT, true);
 
-    if (button.is_release())
+    if (!is_play_sound)
     {
+      is_play_sound = true;
+      myDFPlayer.play(3);
+    }
+
+    if (master_button.is_release())
+    {
+      is_play_sound = false;
       app_state = NoGame;
       Serial.println(F("Drop"));
     }
